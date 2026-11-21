@@ -1,0 +1,32 @@
+{
+    "patient_id": "2",
+    "patient_name": "test_kaku",
+    "affected_side": "kiri",
+    "calibration_timestamp": "2026-11-19 06:57:01",
+    "calibration_cv": {
+        "grip_status": "Kaku / Spastisitas Berat",
+        "average_max_flexion": 37.9,
+        "clinical_note": "Keterbatasan gerak signifikan. Wajib durasi singkat dengan Haptic Assist aktif.",
+        "max_flexion_angles": {
+            "thumb": 18.2,
+            "index": 41.0,
+            "middle": 45.9,
+            "ring": 39.7,
+            "pinky": 44.6
+        }
+    },
+    "movement_analysis": {
+        "weakest_finger": "thumb",
+        "finger_spread_deg": 27.7,
+        "repetitions": 0,
+        "mean_cycle_duration_s": null
+    },
+    "doctor_prescription": {
+        "status": "Menunggu Konfigurasi Dokter",
+        "session_duration_minutes": 10,
+        "game_difficulty_level": "Easy",
+        "target_rom_percentage": 0.65,
+        "max_safe_bpm": 115,
+        "enable_haptic_assist": true
+    }
+}

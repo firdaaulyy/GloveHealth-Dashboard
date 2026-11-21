@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang='id'>
+<head>
+<meta charset='UTF-8'>
+<title>Dashboard Dokter - GLOVE-HEALTH</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 24px; }
+  .wrap { max-width: 1100px; margin: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 18px; }
+  .full { grid-column: 1 / -1; }
+  h1 { margin: 0 0 18px; }
+  h2 { margin: 0 0 12px; color: #38bdf8; font-size: 1.1rem; }
+  img { width: 100%; min-height: 120px; border-radius: 8px; background: #000; }
+  label { display: block; margin-top: 12px; font-size: .85rem; color: #cbd5e1; }
+  input, select { width: 100%; padding: 9px; margin-top: 4px; border: 1px solid #475569; border-radius: 8px; background: #0f172a; color: #fff; box-sizing: border-box; }
+  button { padding: 10px 14px; margin: 12px 8px 0 0; border: 0; border-radius: 8px; background: #22c55e; color: #052e16; font-weight: 700; cursor: pointer; }
+  button.alt { background: #475569; color: #fff; }
+  .track { background: #334155; height: 10px; border-radius: 6px; overflow: hidden; margin: 4px 0 10px; }
+  .fill { background: #22c55e; height: 100%; width: 0; }
+  .msg { color: #fbbf24; font-size: .9rem; min-height: 1.2em; }
+</style>
+</head>
+<body>
+<h1>GLOVE-HEALTH Clinical Dashboard</h1>
+<div class='wrap'>
+  <div class='card'>
+    <h2>1. Kalibrasi MediaPipe Hands</h2>
+    <img id='cam' alt='Kamera belum aktif'>
+    <label>Nama pasien <input id='name' maxlength='80'></label>
+    <label>ID pasien (kosongkan untuk otomatis; huruf, angka, - dan _) <input id='pid' maxlength='30'></label>
+    <label>Sisi tangan terdampak
+      <select id='side'><option value='kiri'>Kiri</option><option value='kanan'>Kanan</option></select></label>
+    <button onclick='kamera(true)'>Mulai kamera</button>
+    <button class='alt' onclick='kamera(false)'>Hentikan</button>
+    <button class='alt' onclick='resetKalibrasi()'>Reset</button>
+    <button onclick='simpanKalibrasi()'>Simpan kalibrasi</button>
+    <p class='msg' id='msg1'></p>
+  </div>
+
+  <div class='card'>
+    <h2>2. Hasil dan Analisis Gerakan</h2>
+    <p id='pasien'>Belum ada kalibrasi tersimpan.</p>
+    <p id='live'>Kamera belum dimulai.</p>
+    <div id='bars'></div>
+    <p id='grip'></p>
+    <p id='analisis'></p>
+  </div>
+
+  <div class='card full'>
+    <h2>3. Resep Latihan (ditetapkan dokter)</h2>
+    <p class='msg' id='rxstatus'>Simpan kalibrasi terlebih dahulu.</p>
+    <label>Durasi latihan (menit) <input id='dur' type='number' min='3' max='60'></label>
+    <label>Level kesulitan
+      <select id='lvl'>
+        <option value='Easy'>Easy (target 65% kemampuan maksimal)</option>
+        <option value='Medium'>Medium (target 85%)</option>
+        <option value='Hard'>Hard (target 100%)</option>
+      </select></label>
+    <label>Batas aman detak jantung (BPM) <input id='bpm' type='number' min='80' max='160'></label>
+    <label>Bantuan getaran (haptic)
+      <select id='hap'><option value='true'>Aktif</option><option value='false'>Nonaktif</option></select></label>
+    <button onclick='simpanResep()'>Simpan dan sahkan resep</button>
+  </div>
+</div>
+
+<script>
+const FINGERS = ['thumb', 'index', 'middle', 'ring', 'pinky'];
+const $ = (id) => document.getElementById(id);
+let timer = null;
+
+$('bars').innerHTML = FINGERS.map((f) =>
+  `<div><span>${f}</span>: <span id='v-${f}'>0</span><div class='track'><div class='fill' id='b-${f}'></div></div></div>`).join('');
+
+async function api(url, method = 'GET', body) {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Input tidak valid.');
+  return data;
+}
+
+async function kamera(on) {
+  await api(on ? '/api/kamera/mulai' : '/api/kamera/berhenti', 'POST');
+  clearInterval(timer);
+  if (on) { $('cam').src = '/video_feed?t=' + Date.now(); timer = setInterval(poll, 300); }
+  else { $('cam').removeAttribute('src'); $('live').textContent = 'Kamera dihentikan.'; }
+}
+
+async function poll() {
+  const s = await api('/api/kalibrasi/status');
+  if (s.error) { $('msg1').textContent = s.error; clearInterval(timer); return; }
+  $('live').textContent = 'Tangan: ' + (s.hand_visible ? 'terdeteksi' : 'tidak terlihat') + ' | Frame valid: ' + s.valid_frames;
+  FINGERS.forEach((f) => {
+    $('v-' + f).textContent = s.max_angles[f] + ' derajat (saat ini ' + s.current[f] + ')';
+    $('b-' + f).style.width = Math.min(100, (s.max_angles[f] / 90) * 100) + '%';
+  });
+  $('grip').textContent = 'Status genggaman: ' + s.grip_status + ' (rata-rata ' + s.avg_max + ' derajat)';
+  const m = s.movement;
+  $('analisis').textContent = 'Jari terlemah: ' + m.weakest_finger + ' | Repetisi: ' + m.repetitions
+    + ' | Durasi siklus rata-rata: ' + (m.mean_cycle_duration_s ?? '-') + ' detik';
+}
+
+async function resetKalibrasi() {
+  await api('/api/kalibrasi/reset', 'POST');
+  $('msg1').textContent = 'Data sudut dikosongkan.';
+}
+
+function tampilkanPasien(p) {
+  $('pasien').textContent = 'Pasien: ' + p.patient_name + ' (' + p.patient_id + '), tangan ' + p.affected_side
+    + ', kalibrasi ' + p.calibration_timestamp;
+}
+
+async function simpanKalibrasi() {
+  try {
+    const p = await api('/api/kalibrasi/simpan', 'POST',
+      { patient_name: $('name').value.trim(), patient_id: $('pid').value.trim(), affected_side: $('side').value });
+    $('msg1').textContent = 'Kalibrasi tersimpan untuk ' + p.patient_id + '.';
+    tampilkanPasien(p);
+    tampilkanResep(p.doctor_prescription);
+  } catch (e) { $('msg1').textContent = e.message; }
+}
+
+function tampilkanResep(rx) {
+  $('dur').value = rx.session_duration_minutes;
+  $('lvl').value = rx.game_difficulty_level;
+  $('bpm').value = rx.max_safe_bpm;
+  $('hap').value = String(rx.enable_haptic_assist);
+  $('rxstatus').textContent = 'Status resep: ' + rx.status
+    + (rx.status === 'Ditetapkan oleh Dokter' ? '' : ' (nilai di bawah adalah rekomendasi sistem; ubah sesuai penilaian klinis)');
+}
+
+async function simpanResep() {
+  try {
+    const p = await api('/api/resep', 'POST',
+      { duration: Number($('dur').value), difficulty: $('lvl').value, max_bpm: Number($('bpm').value), haptic: $('hap').value === 'true' });
+    tampilkanResep(p.doctor_prescription);
+  } catch (e) { $('rxstatus').textContent = e.message; }
+}
+
+api('/api/profil').then((p) => { tampilkanPasien(p); tampilkanResep(p.doctor_prescription); }).catch(() => {});
+</script>
+</body>
+</html>

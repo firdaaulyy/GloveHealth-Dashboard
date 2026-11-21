@@ -1,0 +1,32 @@
+{
+    "patient_id": "3",
+    "patient_name": "test_sempurna",
+    "affected_side": "kiri",
+    "calibration_timestamp": "2026-11-19 07:36:40",
+    "calibration_cv": {
+        "grip_status": "Genggaman Sempurna / Baik",
+        "average_max_flexion": 112.5,
+        "clinical_note": "Pasien mampu mengepal penuh. Siap untuk latihan ketahanan dan kecepatan.",
+        "max_flexion_angles": {
+            "thumb": 59.1,
+            "index": 118.6,
+            "middle": 138.8,
+            "ring": 127.5,
+            "pinky": 118.7
+        }
+    },
+    "movement_analysis": {
+        "weakest_finger": "thumb",
+        "finger_spread_deg": 79.7,
+        "repetitions": 4,
+        "mean_cycle_duration_s": 4.86
+    },
+    "doctor_prescription": {
+        "status": "Menunggu Konfigurasi Dokter",
+        "session_duration_minutes": 20,
+        "game_difficulty_level": "Hard",
+        "target_rom_percentage": 1.0,
+        "max_safe_bpm": 115,
+        "enable_haptic_assist": false
+    }
+}
